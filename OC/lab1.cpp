@@ -10,6 +10,8 @@ typedef struct
 
 void* proc1(void *arg)
 {
+    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL); //режим отложенного досрочного завершения
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL); //поток завершать нельзя, вход в критическое место
     cout << "Поток 1 начал работу\n";
     targs *args = (targs*)arg;
     while(args->flag == 0)
@@ -19,11 +21,14 @@ void* proc1(void *arg)
         std::this_thread::sleep_for(1s);
     }
     cout << "Поток 1 закончил работу\n";
-    pthread_exit((void*)1);
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL); //можно завершать поток
+    pthread_testcancel(); //точка останова(проверка был ли поток остановлен извне)
 }
 
 void* proc2(void *arg)
 {
+    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL); //режим отложенного досрочного завершения
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL); //поток завершать нельзя, вход в критическое место
     cout << "Поток 2 начал работу\n";
     targs *args = (targs*)arg;
     while(args->flag == 0)
@@ -33,7 +38,8 @@ void* proc2(void *arg)
         std::this_thread::sleep_for(1s);
     }
     cout << "Поток 2 закончил работу\n";
-    pthread_exit((void*)2);
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL); //можно завершать поток
+    pthread_testcancel(); //точка останова(проверка был ли поток остановлен извне)
 }
 
 int main()
@@ -55,12 +61,15 @@ int main()
     arg1.flag = 1;
     arg2.flag = 1;
 
-    int *exitcode1;
-    int *exitcode2;
+    void *exitcode1;
+    void *exitcode2;
 
-    pthread_join(id1, (void**)&exitcode1);
-    pthread_join(id2, (void**)&exitcode2);
-    printf("Код завершения потока 1 = %p\n", exitcode1);
-    printf("Код завершения потока 2 = %p\n", exitcode2);
+    pthread_cancel(id1);
+    pthread_cancel(id2);
+    
+    pthread_join(id1, &exitcode1);
+    pthread_join(id2, &exitcode2);
+    if (exitcode1 == PTHREAD_CANCELED) cout << "Поток 1 был отменен c кодом: " << exitcode1 << endl;
+    if (exitcode2 == PTHREAD_CANCELED) cout << "Поток 2 был отменен c кодом: " << exitcode2 << endl;
     cout << "Программа закончила работу\n";
 }
